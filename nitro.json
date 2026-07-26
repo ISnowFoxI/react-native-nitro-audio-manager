@@ -9,8 +9,14 @@
   },
   "autolinking": {
     "AudioManager": {
-      "swift": "AudioManager",
-      "kotlin": "AudioManager"
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "AudioManager"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "AudioManager"
+      }
     }
   },
   "ignorePaths": ["node_modules"]

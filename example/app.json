@@ -25,7 +25,6 @@
     },
     "android": {
       "package": "audiomanager.example",
-      "edgeToEdgeEnabled": true
     },
     "extra": {
       "eas": {
