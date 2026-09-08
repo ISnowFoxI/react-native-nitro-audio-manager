@@ -972,4 +972,24 @@ class AudioManager: HybridAudioManagerSpec {
     }
     return result
   }
+
+  public func setPreferredAudioInput(port: PortDescription, warningCallback: @escaping WarningCallback) {
+    guard let match = audioSession.availableInputs?.first(where: { $0.uid == port.uid }) else {
+      warningCallback(
+        AudioSessionWarning(
+          name: "FAILED_TO_SET_PREFERRED_AUDIO_INPUT",
+          message: "Preferred audio input not found among available inputs, falling back to default audio input"
+        ))
+      return
+    }
+    do {
+      try audioSession.setPreferredInput(match)
+    } catch {
+      warningCallback(
+        AudioSessionWarning(
+          name: "FAILED_TO_SET_PREFERRED_AUDIO_INPUT",
+          message: "Failed to set preferred audio input, falling back to default audio input"
+        ))
+    }
+  }
 }

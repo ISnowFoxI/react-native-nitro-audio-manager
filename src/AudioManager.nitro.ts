@@ -9,8 +9,10 @@ import type {
   RouteChangeEvent,
 } from './types';
 
-export interface AudioManager
-  extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
+export interface AudioManager extends HybridObject<{
+  ios: 'swift';
+  android: 'kotlin';
+}> {
   /**
    * MARK: Both Platforms
    */
@@ -57,6 +59,7 @@ export interface AudioManager
     prefersEchoCancelledInput: boolean,
     warningCallback: (warning: AudioSessionWarning) => void
   ): void;
+  setPreferredAudioInput(port: PortDescription): void;
   /**
    * MARK: Android Only
    */

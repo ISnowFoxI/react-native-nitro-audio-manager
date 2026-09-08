@@ -331,3 +331,7 @@ export function addListener<T extends ListenerType>(
       return () => {};
   }
 }
+
+export function setPreferredAudioInput(port: PortDescription) {
+  return AudioManagerHybridObject.setPreferredAudioInput(port);
+}
