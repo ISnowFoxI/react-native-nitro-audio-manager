@@ -283,6 +283,8 @@ export function configureAudio<
  * - `routeChange`: triggered when the audio route changes (e.g., headphones plugged in/out).
  * - `volume`: triggered when the system volume changes. For ios, this takes control of the audio session and will not work if the audio session is not active.
  * This is useful for tracking volume changes in real-time.
+ * - `inputLevel`: *iOS only* triggered continuously with the audio level (roughly 0-100, dB-based) of the currently selected input.
+ * Useful for building a mic level meter for the input set via `setPreferredAudioInput`.
  *
  * @example
  * ```ts
@@ -325,6 +327,13 @@ export function addListener<T extends ListenerType>(
       return () => {
         AudioManagerHybridObject.removeVolumeListener(listenerId);
       };
+    case 'inputLevel':
+      listenerId = AudioManagerHybridObject.addInputLevelListener(
+        listener as (level: number) => void
+      );
+      return () => {
+        AudioManagerHybridObject.removeInputLevelListener(listenerId);
+      };
     default:
       const _exhaustive: never = type;
       console.warn(`Unhandled listener type: ${_exhaustive}`);
@@ -332,6 +341,6 @@ export function addListener<T extends ListenerType>(
   }
 }
 
-export function setPreferredAudioInput(port: PortDescription) {
-  return AudioManagerHybridObject.setPreferredAudioInput(port);
+export function setPreferredAudioInput(port: PortDescription): void {
+  return AudioManagerHybridObject.setPreferredAudioInput(port, processWarning);
 }

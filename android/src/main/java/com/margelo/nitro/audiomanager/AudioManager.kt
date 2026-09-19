@@ -367,6 +367,22 @@ class AudioManager : HybridAudioManagerSpec() {
       .firstOrNull { it.isSink }
   }
 
+  override fun setPreferredAudioInput(port: PortDescription, warningCallback: (AudioSessionWarning) -> Unit) {
+    // no-op
+  }
+
+  private val inputLevelListeners = mutableListOf<Listener<(Double) -> Unit>>()
+
+  override fun addInputLevelListener(callback: (Double) -> Unit): Double {
+    val id = nextListenerId++
+    inputLevelListeners += Listener(id, callback)
+    return id
+  }
+
+  override fun removeInputLevelListener(id: Double) {
+    inputLevelListeners.removeAll { it.id == id }
+  }
+
   override fun getCategoryCompatibleInputs(): Array<PortDescription> {
     // no op
     return arrayOf()

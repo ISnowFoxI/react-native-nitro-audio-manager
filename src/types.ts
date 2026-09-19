@@ -190,10 +190,7 @@ export interface RouteChangeEvent {
 export type InterruptionType = 'began' | 'ended';
 
 export type InterruptionReason =
-  | 'Default'
-  | 'BuiltInMicMuted'
-  | 'RouteDisconnected'
-  | 'AppWasSuspended'; // Deprecated but still kind of valid
+  'Default' | 'BuiltInMicMuted' | 'RouteDisconnected' | 'AppWasSuspended'; // Deprecated but still kind of valid
 
 export interface InterruptionEvent {
   type: InterruptionType;
@@ -204,6 +201,7 @@ export type ListenerEvent = {
   audioInterruption: InterruptionEvent;
   routeChange: RouteChangeEvent;
   volume: number;
+  inputLevel: number;
 };
 
 export type ListenerType = keyof ListenerEvent;
@@ -487,11 +485,7 @@ export type AudioSessionCompatibleModes = {
   SoloAmbient: 'Default' | 'SpokenAudio';
   Playback: 'Default' | 'MoviePlayback' | 'SpokenAudio' | 'Measurement';
   Record:
-    | 'Default'
-    | 'VideoRecording'
-    | 'VideoChat'
-    | 'Measurement'
-    | 'SpokenAudio';
+    'Default' | 'VideoRecording' | 'VideoChat' | 'Measurement' | 'SpokenAudio';
   PlayAndRecord:
     | 'Default'
     | 'Measurement'
@@ -512,9 +506,7 @@ export type AudioSessionCompatibleCategoryOptions = {
   Ambient: 'MixWithOthers';
   SoloAmbient: never; // no compatible options, just leave blank
   Playback:
-    | 'MixWithOthers'
-    | 'DuckOthers'
-    | 'InterruptSpokenAudioAndMixWithOthers';
+    'MixWithOthers' | 'DuckOthers' | 'InterruptSpokenAudioAndMixWithOthers';
   Record: 'AllowBluetoothHFP';
   PlayAndRecord:
     | 'MixWithOthers'
@@ -526,9 +518,7 @@ export type AudioSessionCompatibleCategoryOptions = {
     | 'DefaultToSpeaker'
     | 'OverrideMutedMicrophoneInterruption';
   MultiRoute:
-    | 'MixWithOthers'
-    | 'DuckOthers'
-    | 'InterruptSpokenAudioAndMixWithOthers';
+    'MixWithOthers' | 'DuckOthers' | 'InterruptSpokenAudioAndMixWithOthers';
 };
 
 export type EchoCancelledInputCompatibliteCategories = {

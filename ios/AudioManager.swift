@@ -6,6 +6,7 @@ import NitroModules
 typealias InterruptionListener = (InterruptionEvent) -> Void
 typealias RouteChangeListener = (RouteChangeEvent) -> Void
 typealias VolumeListener = (Double) -> Void
+typealias InputLevelListener = (Double) -> Void
 typealias WarningCallback = (AudioSessionWarning) -> Void
 
 struct Listener<T> {
@@ -25,12 +26,16 @@ class AudioManager: HybridAudioManagerSpec {
   private var interruptionListeners: [Listener<InterruptionListener>] = []
   private var routeChangeListeners: [Listener<RouteChangeListener>] = []
   private var volumeListeners: [Listener<VolumeListener>] = []
+  private var inputLevelListeners: [Listener<InputLevelListener>] = []
   private var nextListenerId: Double = 0
 
   private let audioSession = AVAudioSession.sharedInstance()
   private var isSessionActive = false
 
   private var volumeObservation: NSKeyValueObservation?
+
+  private var inputLevelEngine = AVAudioEngine()
+  private var isTappingInputLevel = false
 
   private var hiddenVolumeView: HiddenVolumeView?
   // MARK: Listeners
@@ -136,9 +141,12 @@ class AudioManager: HybridAudioManagerSpec {
     volumeObservation?.invalidate()
     volumeObservation = nil
 
+    stopInputLevelTap()
+
     interruptionListeners.removeAll()
     routeChangeListeners.removeAll()
     volumeListeners.removeAll()
+    inputLevelListeners.removeAll()
   }
 
   // If volume listeners are active, they deactivate
@@ -153,10 +161,12 @@ class AudioManager: HybridAudioManagerSpec {
         print("Failed to activate audio session on foreground: \(error.localizedDescription)")
       }
     }
+    resumeInputLevelEngineIfNeeded()
   }
 
   @objc private func handleDidEnterBackground(_ notification: Notification) {
     isSessionActive = false
+    pauseInputLevelEngineIfNeeded()
   }
 
   @objc private func handleInterruption(_ note: Notification) {
@@ -174,6 +184,12 @@ class AudioManager: HybridAudioManagerSpec {
 
     let typeEnum = AVAudioSession.InterruptionType(rawValue: rawType)
     let type = typeEnum == .began ? InterruptionType.began : InterruptionType.ended
+
+    if typeEnum == .began {
+      pauseInputLevelEngineIfNeeded()
+    } else if typeEnum == .ended {
+      resumeInputLevelEngineIfNeeded()
+    }
 
     let interruptionChangeInfo = InterruptionEvent(
       type: type,
@@ -208,6 +224,12 @@ class AudioManager: HybridAudioManagerSpec {
     )
 
     routeChangeListeners.forEach { $0.callback(routeChangeInfo) }
+
+    // The input node's format can change with the route (e.g. switching mics),
+    // so the tap needs to be torn down and reinstalled against the new route.
+    if isTappingInputLevel, AVAudioSession.RouteChangeReason(rawValue: rawReason) != .unknown {
+      restartInputLevelTap()
+    }
   }
 
   func addInterruptionListener(callback: @escaping InterruptionListener) throws -> Double {
@@ -263,6 +285,95 @@ class AudioManager: HybridAudioManagerSpec {
       volumeObservation?.invalidate()
       volumeObservation = nil
     }
+  }
+
+  func addInputLevelListener(callback: @escaping InputLevelListener) throws -> Double {
+    let listener = Listener(id: nextListenerId, callback: callback)
+    inputLevelListeners.append(listener)
+    nextListenerId += 1
+
+    if !isTappingInputLevel {
+      startInputLevelTap()
+    }
+
+    return listener.id
+  }
+
+  func removeInputLevelListener(id: Double) throws {
+    inputLevelListeners.removeAll { $0.id == id }
+
+    if inputLevelListeners.isEmpty {
+      stopInputLevelTap()
+    }
+  }
+
+  // Taps the raw input node so metering always reflects whatever input is
+  // currently active (including one selected via `setPreferredAudioInput`).
+  private func startInputLevelTap() {
+    // Rebuilt fresh each time: reusing a previously-stopped engine across a
+    // route change is unreliable once its input node's format has changed.
+    inputLevelEngine = AVAudioEngine()
+    let inputNode = inputLevelEngine.inputNode
+    let format = inputNode.inputFormat(forBus: 0)
+
+    guard format.sampleRate > 0 else {
+      // No input hardware available yet (e.g. session not configured for recording).
+      return
+    }
+
+    inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+      let level = Self.soundLevel(from: buffer)
+      DispatchQueue.main.async {
+        self?.inputLevelListeners.forEach { $0.callback(Double(level)) }
+      }
+    }
+
+    do {
+      try inputLevelEngine.start()
+      isTappingInputLevel = true
+    } catch {
+      inputNode.removeTap(onBus: 0)
+      print("Failed to start audio engine for input level metering: \(error.localizedDescription)")
+    }
+  }
+
+  private func stopInputLevelTap() {
+    guard isTappingInputLevel else { return }
+    inputLevelEngine.inputNode.removeTap(onBus: 0)
+    inputLevelEngine.stop()
+    isTappingInputLevel = false
+  }
+
+  private func restartInputLevelTap() {
+    inputLevelEngine.stop()
+    inputLevelEngine.inputNode.removeTap(onBus: 0)
+    startInputLevelTap()
+  }
+
+  private func pauseInputLevelEngineIfNeeded() {
+    guard isTappingInputLevel, inputLevelEngine.isRunning else { return }
+    inputLevelEngine.pause()
+  }
+
+  private func resumeInputLevelEngineIfNeeded() {
+    guard isTappingInputLevel, !inputLevelEngine.isRunning else { return }
+    try? inputLevelEngine.start()
+  }
+
+  // Roughly a 0-100 dB-above-noise-floor scale: silence reads ~0, full-scale reads ~100.
+  private static func soundLevel(from buffer: AVAudioPCMBuffer) -> Float {
+    guard let channelData = buffer.floatChannelData else { return 0 }
+    let frameLength = Int(buffer.frameLength)
+    guard frameLength > 0 else { return 0 }
+
+    let samples = channelData[0]
+    var sum: Float = 0
+    for i in 0..<frameLength {
+      sum += samples[i] * samples[i]
+    }
+    let rms = sqrt(sum / Float(frameLength) + Float.ulpOfOne)
+    let level = 20 * log10(rms)
+    return max(level + 100, 0)
   }
 
   // MARK: Methods

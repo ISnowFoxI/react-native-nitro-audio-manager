@@ -59,7 +59,12 @@ export interface AudioManager extends HybridObject<{
     prefersEchoCancelledInput: boolean,
     warningCallback: (warning: AudioSessionWarning) => void
   ): void;
-  setPreferredAudioInput(port: PortDescription): void;
+  setPreferredAudioInput(
+    port: PortDescription,
+    warningCallback: (warning: AudioSessionWarning) => void
+  ): void;
+  addInputLevelListener(callback: (level: number) => void): number;
+  removeInputLevelListener(id: number): void;
   /**
    * MARK: Android Only
    */
